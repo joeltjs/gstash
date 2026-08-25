@@ -1,6 +1,6 @@
 package main
 
-import "gstash/cmd"
+import "github.com/joeltjs/gstash/cmd"
 
 func main() {
 	cmd.Execute()

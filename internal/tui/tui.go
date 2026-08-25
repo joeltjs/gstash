@@ -10,7 +10,8 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
-	"gstash/internal/git"
+	"github.com/joeltjs/gstash/internal/git"
+	"github.com/joeltjs/gstash/internal/web"
 )
 
 var (
@@ -32,24 +33,27 @@ const (
 	modeList mode = iota
 	modeConfirmDrop
 	modeInputBranch
+	modeInputSave
 )
 
 type Model struct {
-	dir       string
-	curBranch string
-	entries   []git.Entry
-	filtered  []int
-	cursor    int
-	filterAll bool
-	preview   viewport.Model
-	prevRef   string
-	status    string
-	opErr     bool
-	mode      mode
-	ti        textinput.Model
-	width     int
-	height    int
-	loaded    bool
+	dir           string
+	curBranch     string
+	entries       []git.Entry
+	filtered      []int
+	cursor        int
+	filterAll     bool
+	preview       viewport.Model
+	prevRef       string
+	status        string
+	opErr         bool
+	mode          mode
+	ti            textinput.Model
+	width         int
+	height        int
+	loaded        bool
+	dashboardAddr string
+	showHelp      bool
 }
 
 func New(dir string) Model {
@@ -61,6 +65,13 @@ func New(dir string) Model {
 		preview: viewport.New(60, 20),
 		ti:      ti,
 	}
+}
+
+func (m *Model) openSaveInput() {
+	m.mode = modeInputSave
+	m.ti.Placeholder = "stash message (empty = wip)"
+	m.ti.SetValue("")
+	m.ti.Focus()
 }
 
 type listLoadedMsg struct {
@@ -77,6 +88,11 @@ type opDoneMsg struct {
 	out  string
 	err  error
 	drop bool
+}
+
+type dashboardMsg struct {
+	addr string
+	err  error
 }
 
 func (m Model) Init() tea.Cmd {
@@ -120,6 +136,13 @@ func runOp(dir string, fn func(string, string) (string, error), ref string, drop
 	return func() tea.Msg {
 		out, err := fn(dir, ref)
 		return opDoneMsg{out: out, err: err, drop: drop}
+	}
+}
+
+func runOpCmd(dir string, f func(string) (string, error)) tea.Cmd {
+	return func() tea.Msg {
+		out, err := f(dir)
+		return opDoneMsg{out: out, err: err}
 	}
 }
 
@@ -190,6 +213,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, loadList(m.dir)
 
+	case dashboardMsg:
+		if msg.err != nil {
+			m.status = truncateOneLine(msg.err.Error(), maxInt(m.width-4, 20))
+			m.opErr = true
+			return m, nil
+		}
+		m.dashboardAddr = msg.addr
+		m.status = fmt.Sprintf("Dashboard terbuka di http://%s (server tetap jalan di background)", msg.addr)
+		m.opErr = false
+		return m, nil
+
 	case tea.KeyMsg:
 		switch m.mode {
 		case modeConfirmDrop:
@@ -207,29 +241,48 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 
-		case modeInputBranch:
+		case modeInputBranch, modeInputSave:
 			var cmd tea.Cmd
 			if msg.String() == "esc" {
 				m.mode = modeList
 				return m, nil
 			}
 			if msg.String() == "enter" {
-				name := strings.TrimSpace(m.ti.Value())
-				ref := m.selectedRef()
+				val := strings.TrimSpace(m.ti.Value())
+				kind := m.mode
 				m.mode = modeList
-				if name == "" || ref == "" {
+				m.ti.Blur()
+				if kind == modeInputSave {
+					if val == "" {
+						val = "wip"
+					}
+					return m, runOpCmd(m.dir, func(d string) (string, error) {
+						return git.Save(d, val, false)
+					})
+				}
+				ref := m.selectedRef()
+				if val == "" || ref == "" {
 					return m, nil
 				}
-				return m, runOp(m.dir, func(d, r string) (string, error) {
-					return git.BranchFromStash(d, r, name)
-				}, ref, false)
+				return m, runOpCmd(m.dir, func(d string) (string, error) {
+					return git.BranchFromStash(d, ref, val)
+				})
 			}
 			m.ti, cmd = m.ti.Update(msg)
 			return m, cmd
 		}
 
 		switch msg.String() {
-		case "q", "ctrl+c", "esc":
+		case "q", "ctrl+c":
+			return m, tea.Quit
+		case "?":
+			m.showHelp = !m.showHelp
+			return m, nil
+		case "esc":
+			if m.showHelp {
+				m.showHelp = false
+				return m, nil
+			}
 			return m, tea.Quit
 		case "up", "k":
 			if m.cursor > 0 {
@@ -252,6 +305,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		case "r":
 			return m, loadList(m.dir)
+		case "v":
+			if m.dashboardAddr != "" {
+				m.status = fmt.Sprintf("Dashboard sudah jalan di http://%s", m.dashboardAddr)
+				m.opErr = false
+				return m, nil
+			}
+			return m, openDashboard(m.dir)
 		case "a":
 			if ref := m.selectedRef(); ref != "" {
 				return m, runOp(m.dir, git.Apply, ref, false)
@@ -268,10 +328,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "b":
 			if ref := m.selectedRef(); ref != "" {
 				m.mode = modeInputBranch
+				m.ti.Placeholder = "new branch name"
 				m.ti.SetValue(strings.ReplaceAll(strings.ReplaceAll(fmt.Sprintf("stash-%s", strings.TrimPrefix(ref, "stash@{")), "/", "-"), ":", ""))
 				m.ti.Focus()
 				return m, textinput.Blink
 			}
+		case "n":
+			m.openSaveInput()
+			return m, textinput.Blink
 		case "pgup", "ctrl+u":
 			m.preview.HalfPageUp()
 			return m, nil
@@ -332,16 +396,28 @@ func (m Model) View() string {
 	left := borderStyle.Width(leftW).Render(strings.Join(lines, "\n"))
 
 	rightTitle := m.prevRef
-	right := borderStyle.Width(m.width-leftW-4).Render(rightTitle+"\n"+m.preview.View())
+	rightBody := m.preview.View()
+	if m.showHelp {
+		rightTitle = "help  (? or esc to close)"
+		lines := strings.Split(gstashHelpText, "\n")
+		h := clamp(m.height-6, 6, 100)
+		if len(lines) > h {
+			lines = lines[:h]
+		}
+		rightBody = strings.Join(lines, "\n")
+	}
+	right := borderStyle.Width(m.width-leftW-4).Render(rightTitle+"\n"+rightBody)
 
 	body := lipgloss.JoinHorizontal(lipgloss.Top, left, " ", right)
 	b.WriteString(body + "\n")
 
-	help := "↑/↓ move · tab filter · a apply · p pop · d drop · b branch · r refresh · q quit"
+	help := "↑/↓ move · tab filter · n save-new · a apply · p pop · d drop · b branch · v view · ? help · r refresh · q quit"
 	if m.mode == modeConfirmDrop {
 		help = errStyle.Render(fmt.Sprintf("drop %s? y/n", m.selectedRef()))
 	} else if m.mode == modeInputBranch {
-		help = "branch name: " + m.ti.View()
+		help = "branch name: " + m.ti.View() + "  (enter create · esc cancel)"
+	} else if m.mode == modeInputSave {
+		help = "new stash message: " + m.ti.View() + "  (enter save · esc cancel)"
 	}
 	b.WriteString(barStyle.Render(help))
 	if m.status != "" && m.mode == modeList {
@@ -473,4 +549,39 @@ func Run(dir string) error {
 	p := tea.NewProgram(New(dir), tea.WithAltScreen())
 	_, err := p.Run()
 	return err
+}
+
+const gstashHelpText = `NAVIGASI
+  ↑/k, ↓/j        select a stash
+  tab             filter: current branch ↔ all branches
+  pgup/pgdn       scroll preview diff
+
+OPERASI STASH
+  n               buat stash baru dari perubahan sekarang
+  a               apply the stash without deleting it
+  p               pop: apply and delete (the Accept button in the dashboard)
+  d               drop: delete permanently (the Reject button in the dashboard)
+  b               buat branch baru dari stash terpilih
+
+LAINNYA
+  v               buka dashboard web di browser
+  r               refresh daftar
+  ?               show/hide this help
+  q / ctrl+c      keluar
+
+CATATAN
+  · Label SRC: ✓ pasti dari reflog git, ~ diperkirakan
+    dari commit induk, ? tidak diketahui.
+  · Semua operasi memakai index asli git (stash@{n}),
+    so a mislabeled branch can never target the wrong stash.`
+
+func openDashboard(dir string) tea.Cmd {
+	return func() tea.Msg {
+		port, err := web.ResolvePort(dir)
+		if err != nil {
+			return dashboardMsg{err: err}
+		}
+		addr, err := web.Serve(dir, port)
+		return dashboardMsg{addr: addr, err: err}
+	}
 }

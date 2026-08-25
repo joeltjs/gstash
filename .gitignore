@@ -1,0 +1,6 @@
+.env
+.env.local
+gstash
+aicp
+*.log
+strix_runs/

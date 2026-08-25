@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>gstash · stash workbench</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div id="app">
+
+  <header id="topbar">
+    <div class="brand"><span class="mark-block">g</span><span class="mark">gstash</span><span class="tagline">stash workbench</span></div>
+    <div class="branch" id="branch"></div>
+    <label class="toggle" title="Hide stashes from other branches"><input type="checkbox" id="filter"> current branch only</label>
+    <label class="toggle" title="Label source: exact (recorded by git in the reflog), inferred from the parent commit, or unknown"><input type="checkbox" id="showsrc" checked> SRC</label>
+  </header>
+
+  <section id="tablewrap" aria-label="stashes">
+    <table id="tbl">
+      <thead>
+        <tr><th class="c-id">REF</th><th class="c-src">SRC</th><th class="c-branch">BRANCH</th><th class="c-age">AGE</th><th class="c-msg">MESSAGE</th></tr>
+      </thead>
+      <tbody id="rows"></tbody>
+    </table>
+    <div id="empty" class="empty hidden">
+      <p>No stashes in this repository.</p>
+      <p class="dim">Edit some files, then run <code>gstash save "message"</code> or <code>git stash push -m "message"</code>.</p>
+    </div>
+  </section>
+
+  <div id="divider" title="Drag to resize the panels"></div>
+
+  <section id="detailwrap" aria-label="diff">
+    <div id="actionsbar" class="hidden">
+      <span id="meta"></span>
+      <div class="flex1"></div>
+      <button id="btnAccept" class="btn accept" title="git stash pop - apply the changes to the working tree, then remove it from the stash list">Accept &#183; pop</button>
+      <button id="btnReject" class="btn reject" title="git stash drop - permanently delete this stash; the changes are NOT applied">Reject &#183; drop</button>
+      <button id="btnBranch" class="btn neutral" title="buat branch baru dari stash ini (git stash branch)">Branch</button>
+    </div>
+    <pre id="diff" class="hidden"></pre>
+    <div id="pick" class="placeholder"><span>Select a stash row above to see its diff.</span></div>
+  </section>
+
+  <div id="toast" class="hidden"></div>
+</div>
+<script src="/app.js"></script>
+</body>
+</html>

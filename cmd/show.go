@@ -3,7 +3,7 @@ package cmd
 import (
 	"fmt"
 
-	"gstash/internal/git"
+	"github.com/joeltjs/gstash/internal/git"
 
 	"github.com/spf13/cobra"
 )

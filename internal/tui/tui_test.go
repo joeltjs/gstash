@@ -6,7 +6,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"gstash/internal/git"
+	"github.com/joeltjs/gstash/internal/git"
 )
 
 func sampleModel(t *testing.T) Model {

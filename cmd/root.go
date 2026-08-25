@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os"
 
-	"gstash/internal/git"
-	"gstash/internal/tui"
+	"github.com/joeltjs/gstash/internal/git"
+	"github.com/joeltjs/gstash/internal/tui"
 
 	"github.com/spf13/cobra"
 )
