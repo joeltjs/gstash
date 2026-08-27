@@ -107,9 +107,18 @@ Git stores no branch information inside a stash, so gstash uses three layers:
 
 The default filter only shows stashes belonging to the current branch (plus unknown ones).
 
-## MCP server
+## AI Agent Integration (Skill & MCP)
 
-For agents that speak Model Context Protocol. Prerequisite: install the binary (`go install .`).
+### Agent Skill / System Prompt (Recommended)
+To save context tokens and avoid MCP overhead, prefer the **CLI-First / Skill** approach. Modern coding agents (Kilo, Claude Code, Cursor, Windsurf) can directly read `AGENTS.md` or the skills provided in `.agents/skills/gstash/SKILL.md` (or `.kilo/skills/gstash/SKILL.md`).
+
+Quick rules for agents / system prompts:
+- Use `gstash list [--all]` to inspect stashes with branch labels and origins.
+- Use `gstash show <index>` to preview diffs before applying or popping.
+- Never run `gstash drop` without explicit user confirmation.
+
+### MCP Server (Optional)
+For clients that specifically require formal Model Context Protocol support:
 
 ```json
 {
