@@ -35,16 +35,8 @@ var listCmd = &cobra.Command{
 		fmt.Printf("Stashes on %s:\n\n", scope)
 		fmt.Printf("  %-4s %-19s %-15s %s\n", "ID", "BRANCH", "AGE", "MESSAGE")
 		for _, e := range entries {
-			src := ""
-			switch e.Source {
-			case git.SourceInferred:
-				src = "~"
-			case git.SourceUnknown:
-				src = "?"
-			}
-			fmt.Printf("  #%-3d %-19s %-15s %s\n", e.Index, truncRunes(e.Branch+src, 19), truncRunes(e.Age, 15), e.Message)
+			fmt.Printf("  #%-3d %-19s %-15s %s\n", e.Index, truncRunes(e.Branch, 19), truncRunes(e.Age, 15), e.Message)
 		}
-		fmt.Printf("\n%s\n", "~ = inferred from commits, ? = unknown")
 		return nil
 	},
 }

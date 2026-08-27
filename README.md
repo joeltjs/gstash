@@ -35,8 +35,6 @@ b branch · v view (dashboard) · ? help · r refresh · q quit
 
 Left panel: the stash list with branch labels and ages. Right panel: the diff of the selected stash (scroll with `pgup`/`pgdn`). `tab` toggles the filter between *current branch* and *all branches*. Press `?` for the full key reference.
 
-The **SRC** column shows how trustworthy the branch label is: `✓` exact (recorded by git in the reflog), `~` inferred from the parent commit, `?` unknown. Hide it with the SRC checkbox in the dashboard header; in the TUI it is part of the branch column.
-
 ## Commands
 
 | Command | What it does |
@@ -60,8 +58,6 @@ Stashes on all branches:
   ID   BRANCH              AGE             MESSAGE
   #0   main                2 minutes ago   wip login page
   #1   main                5 hours ago     [branch:main] eksperimen validator
-
-~ = inferred from commits, ? = unknown
 
 $ gstash show 0        # full diff of stash@{0}
 ```

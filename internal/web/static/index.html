@@ -13,13 +13,12 @@
     <div class="brand"><span class="mark-block">g</span><span class="mark">gstash</span><span class="tagline">stash workbench</span></div>
     <div class="branch" id="branch"></div>
     <label class="toggle" title="Hide stashes from other branches"><input type="checkbox" id="filter"> current branch only</label>
-    <label class="toggle" title="Label source: exact (recorded by git in the reflog), inferred from the parent commit, or unknown"><input type="checkbox" id="showsrc" checked> SRC</label>
   </header>
 
   <section id="tablewrap" aria-label="stashes">
     <table id="tbl">
       <thead>
-        <tr><th class="c-id">REF</th><th class="c-src">SRC</th><th class="c-branch">BRANCH</th><th class="c-age">AGE</th><th class="c-msg">MESSAGE</th></tr>
+        <tr><th class="c-id">REF</th><th class="c-branch">BRANCH</th><th class="c-age">AGE</th><th class="c-msg">MESSAGE</th></tr>
       </thead>
       <tbody id="rows"></tbody>
     </table>

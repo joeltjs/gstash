@@ -31,16 +31,8 @@ function renderTable() {
   for (const s of list) {
     const tr = document.createElement("tr");
     tr.className = s.ref === sel ? "sel" : "";
-    const srcCls = s.source === "exact" ? "exact" : s.source === "inferred" ? "inferred" : "unknown";
-    const srcChar = s.source === "inferred" ? "~" : s.source === "unknown" ? "?" : "&#10003;";
-    const srcTitle = s.source === "exact"
-      ? "branch pasti, dicatat git di reflog saat stash dibuat"
-      : s.source === "inferred"
-        ? "branch diperkirakan dari commit induk stash (bisa meleset)"
-        : "branch tidak bisa ditentukan";
     tr.innerHTML =
       '<td class="ref">' + esc(s.ref) + "</td>" +
-      '<td class="src"><span class="' + srcCls + '" title="' + srcTitle + '">' + srcChar + "</span></td>" +
       '<td class="branch">' + esc(s.branch || "-") + "</td>" +
       '<td class="age">' + esc(s.age || "") + "</td>" +
       '<td class="msg">' + esc(s.message) + "</td>";
@@ -173,18 +165,10 @@ function initDrag() {
 }
 
 $("filter").onchange = () => { localStorage.setItem("gstash.filter.only", $("filter").checked ? "1" : "0"); renderTable(); };
-$("showsrc").onchange = () => {
-  localStorage.setItem("gstash.showsrc", $("showsrc").checked ? "1" : "0");
-  $("tbl").classList.toggle("hide-src", !$("showsrc").checked);
-};
 $("btnAccept").onclick = accept;
 $("btnReject").onclick = reject;
 $("btnBranch").onclick = makeBranch;
 
-if (localStorage.getItem("gstash.showsrc") === "0") {
-  $("showsrc").checked = false;
-  $("tbl").classList.add("hide-src");
-}
 if (localStorage.getItem("gstash.filter.only") === "1") {
   $("filter").checked = true;
 }

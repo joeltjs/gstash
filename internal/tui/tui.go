@@ -468,19 +468,10 @@ func (m Model) renderTable(totalWidth int) []string {
 
 	for i, idx := range m.filtered {
 		e := m.entries[idx]
-		srcTag := ""
 		style := branchStyle
-		switch e.Source {
-		case git.SourceInferred:
-			srcTag = "~"
-			style = inferredStyle
-		case git.SourceUnknown:
-			srcTag = "?"
-			style = unknownStyle
-		}
 
 		idCell := fmt.Sprintf("#%-3d", e.Index)
-		brCell := truncatePlain(e.Branch+srcTag, cols[1].width)
+		brCell := truncatePlain(e.Branch, cols[1].width)
 		ageCell := truncatePlain(e.Age, cols[2].width)
 		msgCell := truncatePlain(e.Message, cols[3].width)
 
@@ -570,10 +561,8 @@ LAINNYA
   q / ctrl+c      keluar
 
 CATATAN
-  · Label SRC: ✓ pasti dari reflog git, ~ diperkirakan
-    dari commit induk, ? tidak diketahui.
   · Semua operasi memakai index asli git (stash@{n}),
-    so a mislabeled branch can never target the wrong stash.`
+    sehingga selalu akurat menargetkan stash yang benar.`
 
 func openDashboard(dir string) tea.Cmd {
 	return func() tea.Msg {
