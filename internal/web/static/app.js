@@ -89,20 +89,38 @@ async function loadDiff() {
 
     const lines = rawDiff.split("\n");
     let html = "";
-    for (const l of lines) {
+    let inStat = true;
+
+    for (let i = 0; i < lines.length; i++) {
+      const l = lines[i];
       const e = esc(l);
-      if (l.startsWith("+++") || l.startsWith("---")) {
-        html += '<div class="diff-line l-meta">' + e + "</div>";
+
+      if (l.startsWith("diff --git ")) {
+        inStat = false;
+        const parts = l.split(" ");
+        const filename = parts.length >= 4 ? parts[3].replace(/^b\//, "") : l;
+        html += '<div class="diff-file-header"><span class="file-icon">📄</span><span class="file-name">' + esc(filename) + '</span></div>';
+        continue;
+      }
+
+      if (l.startsWith("index ") || l.startsWith("--- ") || l.startsWith("+++ ") || l.startsWith("new file mode") || l.startsWith("deleted file mode")) {
+        // Skip plumbing metadata for clean visual layout
+        continue;
+      }
+
+      if (l.startsWith("@@")) {
+        inStat = false;
+        html += '<div class="diff-line l-hunk">' + e + "</div>";
       } else if (l.startsWith("+")) {
         html += '<div class="diff-line l-add">' + e + "</div>";
       } else if (l.startsWith("-")) {
         html += '<div class="diff-line l-del">' + e + "</div>";
-      } else if (l.startsWith("@@")) {
-        html += '<div class="diff-line l-hunk">' + e + "</div>";
-      } else if (l.startsWith("diff --git") || l.startsWith("index ")) {
+      } else if (l.startsWith("\\ No newline")) {
         html += '<div class="diff-line l-meta">' + e + "</div>";
-      } else if (l.includes("|") && (l.includes("+") || l.includes("-"))) {
+      } else if (inStat && l.includes("|") && (l.includes("+") || l.includes("-"))) {
         html += '<div class="diff-line l-stat">' + e + "</div>";
+      } else if (inStat && (l.includes("files changed,") || l.includes("file changed,"))) {
+        html += '<div class="diff-line l-stat-summary">' + e + "</div>";
       } else {
         html += '<div class="diff-line l-plain">' + e + "</div>";
       }

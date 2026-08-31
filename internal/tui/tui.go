@@ -29,8 +29,9 @@ var (
 	// Diff syntax styles with dedicated background and foreground colors (like git diff / GitHub)
 	diffAddStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("120")).Background(lipgloss.Color("22"))
 	diffDelStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("203")).Background(lipgloss.Color("52"))
-	diffHunkStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("75")).Background(lipgloss.Color("236")).Bold(true)
-	diffMetaStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("248")).Bold(true)
+	diffHunkStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("117")).Background(lipgloss.Color("236")).Bold(true)
+	diffFileBanner = lipgloss.NewStyle().Foreground(lipgloss.Color("15")).Background(lipgloss.Color("238")).Bold(true)
+	diffMetaStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("246"))
 	diffStatStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("179"))
 )
 
@@ -572,37 +573,63 @@ func colorizeDiff(raw string, width int) string {
 	lines := strings.Split(raw, "\n")
 	var out []string
 	for _, l := range lines {
-		if strings.HasPrefix(l, "+++") || strings.HasPrefix(l, "---") {
-			out = append(out, diffMetaStyle.Render(l))
+		if strings.HasPrefix(l, "diff --git ") {
+			// Extract file path from "diff --git a/foo b/foo"
+			parts := strings.Split(l, " ")
+			fileName := l
+			if len(parts) >= 4 {
+				fileName = strings.TrimPrefix(parts[3], "b/")
+			}
+			banner := fmt.Sprintf(" 📄 %s ", fileName)
+			if width > len(banner) {
+				banner += strings.Repeat(" ", width-len(banner))
+			}
+			out = append(out, "", diffFileBanner.Render(banner))
+		} else if strings.HasPrefix(l, "index ") || strings.HasPrefix(l, "--- ") || strings.HasPrefix(l, "+++ ") || strings.HasPrefix(l, "new file mode") || strings.HasPrefix(l, "deleted file mode") || strings.HasPrefix(l, "similarity index") {
+			// Skip low-level git plumbing headers to keep UI clean and GitHub-like
+			continue
+		} else if strings.HasPrefix(l, "@@") {
+			// Clean up hunk header: extract line info and func context cleanly
+			hunkText := l
+			// e.g. @@ -29,7 +29,7 @@ const ( -> @@ -29,7 +29,7 @@  const (
+			if idx := strings.LastIndex(l, "@@"); idx > 0 {
+				hunkMeta := l[:idx+2]
+				funcCtx := strings.TrimSpace(l[idx+2:])
+				if funcCtx != "" {
+					hunkText = hunkMeta + " " + funcCtx
+				} else {
+					hunkText = hunkMeta
+				}
+			}
+			lineText := " " + hunkText + " "
+			if width > len(lineText) {
+				lineText += strings.Repeat(" ", width-len(lineText))
+			}
+			out = append(out, diffHunkStyle.Render(lineText))
 		} else if strings.HasPrefix(l, "+") {
-			// Pad line with background color for clear full-width visibility
 			lineText := l
 			if width > len(lineText) {
-				lineText = lineText + strings.Repeat(" ", width-len(lineText))
+				lineText += strings.Repeat(" ", width-len(lineText))
 			}
 			out = append(out, diffAddStyle.Render(lineText))
 		} else if strings.HasPrefix(l, "-") {
 			lineText := l
 			if width > len(lineText) {
-				lineText = lineText + strings.Repeat(" ", width-len(lineText))
+				lineText += strings.Repeat(" ", width-len(lineText))
 			}
 			out = append(out, diffDelStyle.Render(lineText))
-		} else if strings.HasPrefix(l, "@@") {
-			lineText := l
-			if width > len(lineText) {
-				lineText = lineText + strings.Repeat(" ", width-len(lineText))
-			}
-			out = append(out, diffHunkStyle.Render(lineText))
-		} else if strings.HasPrefix(l, "diff --git") || strings.HasPrefix(l, "index ") || strings.HasPrefix(l, "Binary files") {
-			out = append(out, diffMetaStyle.Render(l))
+		} else if strings.HasPrefix(l, "\\ No newline") {
+			out = append(out, diffMetaStyle.Render(" "+l))
 		} else if strings.Contains(l, "|") && (strings.Contains(l, "+") || strings.Contains(l, "-")) {
-			// git diff --stat line
+			// git diff --stat summary line
 			out = append(out, diffStatStyle.Render(l))
+		} else if strings.Contains(l, "files changed,") || strings.Contains(l, "file changed,") {
+			out = append(out, titleStyle.Render(l))
 		} else {
 			out = append(out, l)
 		}
 	}
-	return strings.Join(out, "\n")
+	return strings.TrimPrefix(strings.Join(out, "\n"), "\n")
 }
 
 const gstashHelpText = `NAVIGATION
