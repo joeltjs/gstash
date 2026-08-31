@@ -43,6 +43,6 @@ func resolvePort(cmd *cobra.Command, dir string) (int, error) {
 }
 
 func init() {
-	viewCmd.Flags().IntVar(&viewPort, "port", 0, "port dashboard (jika tidak diisi, baca GSTASH_DASHBOARD_PORT dari .env)")
+	viewCmd.Flags().IntVar(&viewPort, "port", 0, "dashboard port (defaults to GSTASH_DASHBOARD_PORT in .env, or fallback)")
 	rootCmd.AddCommand(viewCmd)
 }

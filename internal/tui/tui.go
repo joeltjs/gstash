@@ -25,6 +25,13 @@ var (
 	okStyle       = lipgloss.NewStyle().Foreground(lipgloss.Color("114"))
 	borderStyle   = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color("238"))
 	barStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("243"))
+
+	// Diff syntax styles with dedicated background and foreground colors (like git diff / GitHub)
+	diffAddStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("120")).Background(lipgloss.Color("22"))
+	diffDelStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("203")).Background(lipgloss.Color("52"))
+	diffHunkStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("75")).Background(lipgloss.Color("236")).Bold(true)
+	diffMetaStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("248")).Bold(true)
+	diffStatStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("179"))
 )
 
 type mode int
@@ -192,7 +199,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case previewMsg:
 		if msg.ref == m.prevRef {
-			m.preview.SetContent(msg.content)
+			m.preview.SetContent(colorizeDiff(msg.content, m.preview.Width))
 			m.preview.GotoTop()
 		}
 		return m, nil
@@ -220,7 +227,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.dashboardAddr = msg.addr
-		m.status = fmt.Sprintf("Dashboard terbuka di http://%s (server tetap jalan di background)", msg.addr)
+		m.status = fmt.Sprintf("Dashboard opened at http://%s (server running in background)", msg.addr)
 		m.opErr = false
 		return m, nil
 
@@ -307,7 +314,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, loadList(m.dir)
 		case "v":
 			if m.dashboardAddr != "" {
-				m.status = fmt.Sprintf("Dashboard sudah jalan di http://%s", m.dashboardAddr)
+				m.status = fmt.Sprintf("Dashboard already running at http://%s", m.dashboardAddr)
 				m.opErr = false
 				return m, nil
 			}
@@ -325,22 +332,34 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.mode = modeConfirmDrop
 				return m, nil
 			}
-		case "b":
-			if ref := m.selectedRef(); ref != "" {
-				m.mode = modeInputBranch
-				m.ti.Placeholder = "new branch name"
-				m.ti.SetValue(strings.ReplaceAll(strings.ReplaceAll(fmt.Sprintf("stash-%s", strings.TrimPrefix(ref, "stash@{")), "/", "-"), ":", ""))
-				m.ti.Focus()
-				return m, textinput.Blink
+		case "pgup", "ctrl+u", "b", "ctrl+b":
+			// In list mode, "b" creates a branch. But ctrl+b / ctrl+u / pgup scroll up
+			if msg.String() == "b" {
+				if ref := m.selectedRef(); ref != "" {
+					m.mode = modeInputBranch
+					m.ti.Placeholder = "new branch name"
+					m.ti.SetValue(strings.ReplaceAll(strings.ReplaceAll(fmt.Sprintf("stash-%s", strings.TrimPrefix(ref, "stash@{")), "/", "-"), ":", ""))
+					m.ti.Focus()
+					return m, textinput.Blink
+				}
+				return m, nil
 			}
-		case "n":
-			m.openSaveInput()
-			return m, textinput.Blink
-		case "pgup", "ctrl+u":
 			m.preview.HalfPageUp()
 			return m, nil
-		case "pgdown", "ctrl+d":
+		case "pgdown", "ctrl+d", "ctrl+f", "space":
 			m.preview.HalfPageDown()
+			return m, nil
+		case "home", "g":
+			m.preview.GotoTop()
+			return m, nil
+		case "end", "G":
+			m.preview.GotoBottom()
+			return m, nil
+		case "[", "shift+up":
+			m.preview.LineUp(1)
+			return m, nil
+		case "]", "shift+down":
+			m.preview.LineDown(1)
 			return m, nil
 		}
 	}
@@ -396,6 +415,10 @@ func (m Model) View() string {
 	left := borderStyle.Width(leftW).Render(strings.Join(lines, "\n"))
 
 	rightTitle := m.prevRef
+	if rightTitle != "" {
+		percent := int(m.preview.ScrollPercent() * 100)
+		rightTitle = fmt.Sprintf("%s  [%d%% - pgup/pgdn scroll]", m.prevRef, percent)
+	}
 	rightBody := m.preview.View()
 	if m.showHelp {
 		rightTitle = "help  (? or esc to close)"
@@ -542,27 +565,69 @@ func Run(dir string) error {
 	return err
 }
 
-const gstashHelpText = `NAVIGASI
-  ↑/k, ↓/j        select a stash
-  tab             filter: current branch ↔ all branches
-  pgup/pgdn       scroll preview diff
+func colorizeDiff(raw string, width int) string {
+	if strings.TrimSpace(raw) == "" {
+		return dimStyle.Render("no changes")
+	}
+	lines := strings.Split(raw, "\n")
+	var out []string
+	for _, l := range lines {
+		if strings.HasPrefix(l, "+++") || strings.HasPrefix(l, "---") {
+			out = append(out, diffMetaStyle.Render(l))
+		} else if strings.HasPrefix(l, "+") {
+			// Pad line with background color for clear full-width visibility
+			lineText := l
+			if width > len(lineText) {
+				lineText = lineText + strings.Repeat(" ", width-len(lineText))
+			}
+			out = append(out, diffAddStyle.Render(lineText))
+		} else if strings.HasPrefix(l, "-") {
+			lineText := l
+			if width > len(lineText) {
+				lineText = lineText + strings.Repeat(" ", width-len(lineText))
+			}
+			out = append(out, diffDelStyle.Render(lineText))
+		} else if strings.HasPrefix(l, "@@") {
+			lineText := l
+			if width > len(lineText) {
+				lineText = lineText + strings.Repeat(" ", width-len(lineText))
+			}
+			out = append(out, diffHunkStyle.Render(lineText))
+		} else if strings.HasPrefix(l, "diff --git") || strings.HasPrefix(l, "index ") || strings.HasPrefix(l, "Binary files") {
+			out = append(out, diffMetaStyle.Render(l))
+		} else if strings.Contains(l, "|") && (strings.Contains(l, "+") || strings.Contains(l, "-")) {
+			// git diff --stat line
+			out = append(out, diffStatStyle.Render(l))
+		} else {
+			out = append(out, l)
+		}
+	}
+	return strings.Join(out, "\n")
+}
 
-OPERASI STASH
-  n               buat stash baru dari perubahan sekarang
-  a               apply the stash without deleting it
-  p               pop: apply and delete (the Accept button in the dashboard)
-  d               drop: delete permanently (the Reject button in the dashboard)
-  b               buat branch baru dari stash terpilih
+const gstashHelpText = `NAVIGATION
+  ↑/k, ↓/j        select stash in list
+  tab             toggle filter: current branch ↔ all branches
+  pgup/pgdn       scroll diff preview by half page (ctrl+u / ctrl+d / space)
+  [/]             scroll diff preview by line (shift+↑ / shift+↓)
+  home/end        jump to top / bottom of diff preview (g / G)
 
-LAINNYA
-  v               buka dashboard web di browser
-  r               refresh daftar
-  ?               show/hide this help
-  q / ctrl+c      keluar
+STASH ACTIONS
+  n               create new stash from working tree (records current branch)
+  a               apply stash without deleting it (git stash apply)
+  p               pop stash: apply and delete (git stash pop)
+  d               drop stash: delete permanently (git stash drop with confirmation)
+  b               create and checkout new branch from selected stash (git stash branch)
 
-CATATAN
-  · Semua operasi memakai index asli git (stash@{n}),
-    sehingga selalu akurat menargetkan stash yang benar.`
+DASHBOARD & MISC
+  v               launch local web dashboard in browser
+  r               refresh stash list
+  ?               toggle help view
+  q / ctrl+c      quit gstash
+
+SAFETY & NOTES
+  • Operations target exact git ref (stash@{n}) directly.
+  • Stash diffs support full keyboard scrolling and GitHub-style syntax highlighting.`
 
 func openDashboard(dir string) tea.Cmd {
 	return func() tea.Msg {
