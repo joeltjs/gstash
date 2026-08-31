@@ -110,7 +110,12 @@ async function loadDiff() {
 
       if (l.startsWith("@@")) {
         inStat = false;
-        html += '<div class="diff-line l-hunk">' + e + "</div>";
+        let hunkMeta = e;
+        const lastIdx = e.lastIndexOf("@@");
+        if (lastIdx > 0) {
+          hunkMeta = e.substring(0, lastIdx + 2);
+        }
+        html += '<div class="diff-line l-hunk">' + hunkMeta + "</div>";
       } else if (l.startsWith("+")) {
         html += '<div class="diff-line l-add">' + e + "</div>";
       } else if (l.startsWith("-")) {

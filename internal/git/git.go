@@ -29,7 +29,7 @@ const (
 )
 
 var branchPrefixRe = regexp.MustCompile(`^\[branch:([^\]]+)\]\s*`)
-var reflogBranchRe = regexp.MustCompile(`^(?:On|WIP) (.+?):`)
+var reflogBranchRe = regexp.MustCompile(`^(?:(?:WIP\s+)?on|On)\s+([^:\s]+):`)
 
 func Run(dir string, args ...string) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -138,7 +138,7 @@ func stashIndex(ref string) (int, error) {
 }
 
 func cleanSubject(s string) string {
-	if strings.HasPrefix(s, "On ") {
+	if strings.HasPrefix(s, "On ") || strings.HasPrefix(s, "WIP on ") {
 		if i := strings.Index(s, ": "); i >= 0 {
 			return s[i+2:]
 		}

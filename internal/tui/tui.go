@@ -27,12 +27,12 @@ var (
 	barStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("243"))
 
 	// Diff syntax styles with dedicated background and foreground colors (like git diff / GitHub)
-	diffAddStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("120")).Background(lipgloss.Color("22"))
-	diffDelStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("203")).Background(lipgloss.Color("52"))
-	diffHunkStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("117")).Background(lipgloss.Color("236")).Bold(true)
+	diffAddStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("48")).Background(lipgloss.Color("22"))
+	diffDelStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("196")).Background(lipgloss.Color("52"))
+	diffHunkStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("81")).Background(lipgloss.Color("236")).Bold(true)
 	diffFileBanner = lipgloss.NewStyle().Foreground(lipgloss.Color("15")).Background(lipgloss.Color("238")).Bold(true)
-	diffMetaStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("246"))
-	diffStatStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("179"))
+	diffMetaStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
+	diffStatStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("214"))
 )
 
 type mode int
@@ -580,44 +580,21 @@ func colorizeDiff(raw string, width int) string {
 			if len(parts) >= 4 {
 				fileName = strings.TrimPrefix(parts[3], "b/")
 			}
-			banner := fmt.Sprintf(" 📄 %s ", fileName)
-			if width > len(banner) {
-				banner += strings.Repeat(" ", width-len(banner))
-			}
-			out = append(out, "", diffFileBanner.Render(banner))
+			out = append(out, "", diffFileBanner.Render(" 📄 "+fileName))
 		} else if strings.HasPrefix(l, "index ") || strings.HasPrefix(l, "--- ") || strings.HasPrefix(l, "+++ ") || strings.HasPrefix(l, "new file mode") || strings.HasPrefix(l, "deleted file mode") || strings.HasPrefix(l, "similarity index") {
 			// Skip low-level git plumbing headers to keep UI clean and GitHub-like
 			continue
 		} else if strings.HasPrefix(l, "@@") {
-			// Clean up hunk header: extract line info and func context cleanly
+			// Extract line numbers only, e.g. "@@ -150,7 +150,7 @@"
 			hunkText := l
-			// e.g. @@ -29,7 +29,7 @@ const ( -> @@ -29,7 +29,7 @@  const (
 			if idx := strings.LastIndex(l, "@@"); idx > 0 {
-				hunkMeta := l[:idx+2]
-				funcCtx := strings.TrimSpace(l[idx+2:])
-				if funcCtx != "" {
-					hunkText = hunkMeta + " " + funcCtx
-				} else {
-					hunkText = hunkMeta
-				}
+				hunkText = l[:idx+2]
 			}
-			lineText := " " + hunkText + " "
-			if width > len(lineText) {
-				lineText += strings.Repeat(" ", width-len(lineText))
-			}
-			out = append(out, diffHunkStyle.Render(lineText))
+			out = append(out, diffHunkStyle.Render(" "+hunkText+" "))
 		} else if strings.HasPrefix(l, "+") {
-			lineText := l
-			if width > len(lineText) {
-				lineText += strings.Repeat(" ", width-len(lineText))
-			}
-			out = append(out, diffAddStyle.Render(lineText))
+			out = append(out, diffAddStyle.Render(l))
 		} else if strings.HasPrefix(l, "-") {
-			lineText := l
-			if width > len(lineText) {
-				lineText += strings.Repeat(" ", width-len(lineText))
-			}
-			out = append(out, diffDelStyle.Render(lineText))
+			out = append(out, diffDelStyle.Render(l))
 		} else if strings.HasPrefix(l, "\\ No newline") {
 			out = append(out, diffMetaStyle.Render(" "+l))
 		} else if strings.Contains(l, "|") && (strings.Contains(l, "+") || strings.Contains(l, "-")) {
